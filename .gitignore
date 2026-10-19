@@ -1,0 +1,25 @@
+__pycache__/
+.pytest_cache/
+.pytest_tmp/
+.pytest_*/
+.idea/
+.test_run_*/
+.browser_review_*
+*.sqlite3
+*.sqlite
+*.db
+*.log
+.venv/
+*.py[cod]
+.env
+.env.*
+!.env.example
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+# 本机开发记录与私有资料不随公开仓库上传。
+README.local.md
+方案设计.md
+学习指南.md
+*.docx
+*.pdf

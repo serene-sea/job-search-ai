@@ -1,0 +1,14 @@
+fastapi>=0.115,<1
+uvicorn>=0.34,<1
+httpx>=0.27,<1
+pytest>=7.4,<10
+SQLAlchemy>=2.0,<2.1
+alembic>=1.15,<2
+# MySQL 8.4 默认使用 caching_sha2_password；rsa 扩展安装其非 TLS 认证所需的 cryptography。
+PyMySQL[rsa]>=1.1,<2
+pwdlib[argon2]>=0.2,<1
+python-dotenv>=1.0,<2
+# 临时上传；原件提取完即丢弃，不建立持久文件仓库。
+python-multipart>=0.0.20,<1
+pypdf>=5,<7
+python-docx>=1.2,<2

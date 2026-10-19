@@ -1,0 +1,2 @@
+/* Tailwind 从这里进入项目。页面样式直接写在各个 Vue 模板的 class 中。 */
+@import "tailwindcss";
