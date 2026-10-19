@@ -26,7 +26,7 @@ def _year_month(year: int | None, month: int | None) -> str:
 
 def build_personal_context(db: Session, user_id: int, sources: list[str], *,
                            job_id: int | None = None, report: dict | None = None) -> str:
-    """数据库只按服务端登录 ID 查询；本函数不读取未勾选类别。"""
+    """只取本次勾选的本人资料；关联岗位由会话带入，不能由模型指定。"""
 
     selected = set(sources)
     items: list[dict[str, str]] = []
@@ -48,6 +48,7 @@ def build_personal_context(db: Session, user_id: int, sources: list[str], *,
         if len(content) > remaining:
             content = content[:remaining]
             limited = True
+        # 每条资料带上来源编号，回答提到某段经历时才有地方可核对。
         items.append({"id": record_id, "category": SOURCE_LABELS[source], "text": content})
         used += len(content)
         used_by_source[source] += len(content)
@@ -137,6 +138,7 @@ def build_personal_context(db: Session, user_id: int, sources: list[str], *,
             if len(text) > 4000:
                 limited = True
 
+    # 没选、没填或超出长度上限，都不能理解成“用户没有这项能力”。
     if not items:
         notices.append("所选范围没有可用记录；不能据此推断用户没有相关经历或能力")
     if limited:

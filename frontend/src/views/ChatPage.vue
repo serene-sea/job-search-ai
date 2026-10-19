@@ -183,6 +183,7 @@ const deleteId = ref<number | null>(null)
 const showReview = ref(false)
 const reportQuestion = ref('')
 let controller: AbortController | null = null
+// 切换会话时旧请求可能晚回来；只让当前请求更新报错和加载状态。
 let loadVersion = 0
 
 const report = computed(() => [...messages.value].reverse().find(item => item.kind === 'report') ?? null)
@@ -301,6 +302,7 @@ async function send() {
   const sessionId = current.value.id; const asked = question.value.trim()
   const sources = mode.value === 'personal' ? [...selectedSourceNames.value] : []
   busy.value = true; error.value = ''; draftAnswer.value = ''; runId.value = null
+  // controller 只负责断开浏览器这边；真正停止模型还要调用服务端的 stop 接口。
   controller = new AbortController()
   try {
     await streamAnswer(sessionId, asked, mode.value, sources, controller.signal, (event, data) => {
@@ -319,6 +321,7 @@ async function send() {
 }
 async function stopAnswer() {
   if (runId.value === null) return
+  // 先通知后端取消模型任务，再关闭本地连接；已收到的文字会留在消息记录中。
   try { await stopRun(runId.value); controller?.abort() }
   catch (cause) { showError(cause) }
 }

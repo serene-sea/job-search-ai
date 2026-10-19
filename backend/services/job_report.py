@@ -65,6 +65,7 @@ def build_guide(result: JobAnalysisResult) -> JobGuide:
     try:
         draft = ReportDraft.model_validate_json(chat_json(REPORT_SYSTEM, payload, max_tokens=2200))
         body = draft.report_text.strip()
+        # 模型写完还要过一道检查：六段齐全、顺序正确，不把内部资料编号露给用户。
         positions = [body.find(heading) for heading in REPORT_HEADINGS]
         if any(position < 0 for position in positions) or positions != sorted(positions):
             raise ValueError("missing_or_unordered_headings")
@@ -72,6 +73,7 @@ def build_guide(result: JobAnalysisResult) -> JobGuide:
             raise ValueError("internal_evidence_id_in_text")
         if len(set(draft.used_evidence_ids)) != len(draft.used_evidence_ids) or not set(draft.used_evidence_ids) <= evidence.keys():
             raise ValueError("invalid_evidence_reference")
+        # 这些检查能挡住格式错误和假编号，不能证明报告里的每句分析都正确。
         return JobGuide(text=body, used_evidence_ids=draft.used_evidence_ids)
     except HTTPException:
         # 上游错误可定位；已有证据对齐结果仍由调用方保留。

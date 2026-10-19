@@ -150,6 +150,7 @@ def build_snapshot(db: Session, user_id: int, job_id: int) -> AnalysisSnapshot:
     if len(requirements) > 12000:
         raise HTTPException(status_code=422, detail="首版分析最多处理 12000 字招聘要求，请先精简")
 
+    # 把不同表里的个人资料统一成“编号 + 内容”。模型可以按编号引用，后端才能查它有没有引用真实记录。
     evidence: list[Evidence] = []
     # 版本值也覆盖被长度限制排除的行：任何资料修改都要求用户重新核对。
     revisions: list[tuple[str, int, str]] = []
@@ -205,6 +206,7 @@ def build_snapshot(db: Session, user_id: int, job_id: int) -> AnalysisSnapshot:
         skill.name, skill.proficiency, skill.importance, skill.description,
     ], ensure_ascii=False)) for skill in skills)
 
+    # 上传或提取成功还不够；用户没核对确认的简历文字不会发给模型。
     resume = db.scalar(select(Resume).where(Resume.user_id == user_id, Resume.confirmed_at.is_not(None)))
     resume_used = bool(resume and resume.reviewed_text.strip())
     resume_limited = False
@@ -328,6 +330,7 @@ def _safe_validation_summary(exc: ValidationError) -> list[str]:
 def validate_requirements(items: list[RequirementDraft], requirements_text: str, *, from_model: bool) -> list[RequirementDraft]:
     """用户确认后仍逐字核对原文；模型或浏览器都不能创造招聘条件。"""
 
+    # 模型提错是上游错误；用户提交了不在原文中的片段是输入错误，分别返回不同状态码。
     status_code = 502 if from_model else 422
     if not 1 <= len(items) <= 12:
         raise HTTPException(status_code=status_code, detail="请保留 1 至 12 条岗位要求")
@@ -374,6 +377,7 @@ def align_requirements(snapshot: AnalysisSnapshot, requirements: list[Requiremen
         logger.warning("岗位报告结果不符合结构：%s", _safe_validation_summary(exc))
         raise HTTPException(status_code=502, detail="模型返回的报告格式不符合要求，请重试") from exc
 
+    # 不能直接相信模型返回的编号：每条要求都要有结果，引用的资料也必须在本次快照里。
     by_index = {item.requirement_index: item for item in aligned.items}
     sources = {item.id: item for item in snapshot.evidence}
     if set(by_index) != set(range(len(requirements))) or len(aligned.items) != len(by_index):
@@ -388,6 +392,7 @@ def align_requirements(snapshot: AnalysisSnapshot, requirements: list[Requiremen
         logger.warning("岗位报告引用未通过证据校验")
         raise HTTPException(status_code=502, detail="模型引用的资料无法核对，请重试")
 
+    # 要求原文和证据内容由后端填入，不采用模型自行补写的原文或资料编号。
     items = []
     for index, requirement in enumerate(requirements):
         match = by_index[index]

@@ -45,7 +45,7 @@ export async function streamAnswer(
   signal: AbortSignal,
   onEvent: (event: string, data: Record<string, unknown>) => void,
 ): Promise<void> {
-  // 流式接口用 fetch 直接读取 ReadableStream
+  // 回答会一段一段到达，所以这里直接读取响应流，收到一段就交给页面显示。
   const response = await fetch(`/api/chat/sessions/${sessionId}/ask`, {
     method: 'POST', credentials: 'same-origin', cache: 'no-store', signal,
     headers: { 'Content-Type': 'application/json', 'X-Job-App-Request': '1' },
@@ -66,6 +66,7 @@ export async function streamAnswer(
   try {
     while (true) {
       const { done, value } = await reader.read()
+      // 网络分包可能把一条消息切成两半；先放进 buffer，凑齐空行结尾再解析。
       buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, '\n')
       while (buffer.includes('\n\n')) {
         const end = buffer.indexOf('\n\n')
@@ -84,6 +85,7 @@ export async function streamAnswer(
   } finally {
     reader.releaseLock()
   }
+  // 连接关了不等于回答完成；只有收到服务端的结束或错误事件才算有结论。
   if (!finished && !signal.aborted) throw new ApiError(0, '回答意外中断，请刷新查看保存状态')
   if (streamError) throw new ApiError(502, streamError)
 }

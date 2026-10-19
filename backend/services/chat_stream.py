@@ -44,7 +44,7 @@ def model_settings() -> tuple[str, str, str]:
 
 
 async def stream_model(messages: list[dict[str, str]], settings: tuple[str, str, str]) -> AsyncIterator[str]:
-    """读取 OpenAI 兼容 SSE；协程被取消时 httpx 上游连接会一同关闭。"""
+    """边收到模型文字边交给调用方；停止任务时也会关掉上游连接。"""
 
     base_url, model, key = settings
     try:
@@ -58,6 +58,7 @@ async def stream_model(messages: list[dict[str, str]], settings: tuple[str, str,
                       **completion_options(base_url)},
             ) as response:
                 response.raise_for_status()
+                # 模型一次发来一行数据；只把正文片段交给聊天接口，不把原始响应直接给页面。
                 async for line in response.aiter_lines():
                     if not line.startswith("data:"):
                         continue
@@ -80,6 +81,7 @@ async def stream_model(messages: list[dict[str, str]], settings: tuple[str, str,
                         raise ValueError("流式响应格式无效") from exc
                     if isinstance(delta, str) and delta:
                         yield delta
+        # 网络断开也会结束循环，但没收到 [DONE] 就不能把半截回答当成成功。
         if not saw_done:
             raise ValueError("模型回答流意外结束")
     except (httpx.RequestError, httpx.HTTPStatusError) as exc:
