@@ -37,6 +37,18 @@ def test_fake_chat_stream_ends(monkeypatch):
     assert output.count(b"data: ") == 36
 
 
+def test_fake_agent_requests_tools_then_cites_tool_records():
+    first = fake_request({"stream": True, "messages": [{"role": "user", "content": "问岗位"}],
+                          "tools": [{"function": {"name": "read_current_job"}},
+                                    {"function": {"name": "read_skills"}}]})
+    assert b"read_current_job" in first.wfile.getvalue()
+    assert b"read_skills" in first.wfile.getvalue()
+    second = fake_request({"stream": True, "messages": [
+        {"role": "tool", "content": json.dumps({"records": [{"id": "job:7"}]})}],
+        "tools": [{"function": {"name": "read_current_job"}}]})
+    assert b"[job:7]" in second.wfile.getvalue()
+
+
 def test_only_deepseek_receives_thinking_option():
     assert completion_options("https://api.deepseek.com") == {"thinking": {"type": "disabled"}}
     assert completion_options("https://example.com/v1") == {}

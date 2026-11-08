@@ -4,20 +4,21 @@
       <p class="text-xs font-extrabold tracking-widest text-emerald-700">个人资料</p>
       <h1 class="mt-1 text-3xl font-bold">技能与能力定位</h1>
       <p class="mt-2 text-sm leading-7 text-slate-500">掌握程度如实填写；说明可以写会什么、缺少什么实战经验。</p>
+      <button v-if="!showForm" type="button" class="mt-5 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white" @click="startCreate">添加技能</button>
     </div>
     <p v-if="error" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ error }}</p>
     <p v-if="notice" class="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800" role="status">{{ notice }}</p>
 
-    <form class="mb-6 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7" @submit.prevent="save">
+    <form v-if="showForm" class="mb-6 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7" @submit.prevent="save">
       <h2 class="text-lg font-bold">{{ editingId === null ? '添加技能' : '编辑技能' }}</h2>
       <div class="grid gap-4 sm:grid-cols-3">
-        <label class="grid gap-2 text-sm font-bold">技能名称<input v-model="draft.name" maxlength="100" required class="rounded-lg border border-slate-300 px-3 py-2 font-normal" placeholder="例如：MySQL" /></label>
+        <label class="grid gap-2 text-sm font-bold">技能名称<input v-model="draft.name" maxlength="100" required class="rounded-lg border border-slate-300 px-3 py-2 font-normal" placeholder="请输入技能名称" /></label>
         <label class="grid gap-2 text-sm font-bold">掌握程度<select v-model.number="draft.proficiency" class="rounded-lg border border-slate-300 px-3 py-2 font-normal"><option v-for="(label, index) in proficiencyLabels" :key="label" :value="index">{{ label }}</option></select></label>
         <label class="grid gap-2 text-sm font-bold">重要性（由低到高）<select v-model.number="draft.importance" class="rounded-lg border border-slate-300 px-3 py-2 font-normal"><option v-for="(label, index) in importanceLabels" :key="label" :value="index + 1">{{ label }}</option></select></label>
       </div>
-      <label class="grid gap-2 text-sm font-bold">请在下方描述一下您对本项技能的掌握程度，方便AI助手了解您的现状<textarea v-model="description" maxlength="5000" rows="4" class="rounded-lg border border-slate-300 px-3 py-2 font-normal" placeholder="例如：会基本 SQL，索引和事务尚缺实践"></textarea></label>
+      <label class="grid gap-2 text-sm font-bold">请在下方描述一下您对本项技能的掌握程度，方便AI助手了解您的现状<textarea v-model="description" maxlength="5000" rows="4" class="rounded-lg border border-slate-300 px-3 py-2 font-normal" placeholder="写明已经掌握的内容和仍需提高的部分"></textarea></label>
       <div class="flex justify-end gap-3">
-        <button v-if="editingId !== null" type="button" class="rounded-lg px-4 py-2 text-sm font-bold text-slate-600" :disabled="busy" @click="resetDraft">取消编辑</button>
+        <button type="button" class="rounded-lg px-4 py-2 text-sm font-bold text-slate-600" :disabled="busy" @click="resetDraft">取消</button>
         <button type="submit" class="rounded-lg bg-emerald-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-60" :disabled="busy">{{ busy ? '保存中…' : '保存技能' }}</button>
       </div>
     </form>
@@ -27,9 +28,11 @@
       <p v-if="loading" class="text-sm text-slate-500">正在读取技能…</p>
       <p v-else-if="skills.length === 0" class="py-8 text-center text-sm text-slate-500">还没有技能，先添加一项。</p>
       <ul v-else class="divide-y divide-slate-100">
-        <li v-for="skill in skills" :key="skill.id" class="flex flex-col justify-between gap-3 py-4 sm:flex-row">
-          <div><strong>{{ skill.name }}</strong><span class="ml-3 text-xs text-emerald-700">{{ proficiencyLabels[skill.proficiency] }} · 重要性：{{ importanceLabels[skill.importance - 1] }}</span><p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{{ skill.description || '暂无说明' }}</p></div>
-          <div class="flex shrink-0 gap-2"><button type="button" class="text-sm font-bold text-emerald-700 disabled:opacity-60" :disabled="busy" @click="edit(skill)">编辑</button><button type="button" class="text-sm font-bold text-red-700 disabled:opacity-60" :disabled="busy" @click="askDelete(skill)">删除</button></div>
+        <li v-for="skill in skills" :key="skill.id" class="py-3">
+          <details class="group">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden"><span><strong>{{ skill.name }}</strong><span class="ml-3 text-xs text-emerald-700">{{ proficiencyLabels[skill.proficiency] }} · 重要性：{{ importanceLabels[skill.importance - 1] }}</span></span><span class="text-sm text-emerald-700 group-open:hidden">展开</span><span class="hidden text-sm text-emerald-700 group-open:inline">收起</span></summary>
+            <div class="mt-3 border-t border-slate-100 pt-3"><p class="whitespace-pre-wrap text-sm leading-6 text-slate-600">{{ skill.description || '暂无说明' }}</p><div class="mt-3 flex gap-3"><button type="button" class="text-sm font-bold text-emerald-700 disabled:opacity-60" :disabled="busy" @click="edit(skill)">编辑</button><button type="button" class="text-sm font-bold text-red-700 disabled:opacity-60" :disabled="busy" @click="askDelete(skill)">删除</button></div></div>
+          </details>
         </li>
       </ul>
     </section>
@@ -52,6 +55,7 @@ const skills = ref<Skill[]>([])
 const draft = ref<SkillFields>({ name: '', proficiency: 1, importance: 3, description: null })
 const description = ref('')
 const editingId = ref<number | null>(null)
+const showForm = ref(false)
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
@@ -73,12 +77,19 @@ onMounted(async () => {
 
 function resetDraft() {
   editingId.value = null
+  showForm.value = false
   draft.value = { name: '', proficiency: 1, importance: 3, description: null }
   description.value = ''
 }
 
+function startCreate() {
+  resetDraft()
+  showForm.value = true
+}
+
 function edit(skill: Skill) {
   editingId.value = skill.id
+  showForm.value = true
   draft.value = { name: skill.name, proficiency: skill.proficiency,
     importance: skill.importance, description: skill.description }
   description.value = skill.description ?? ''

@@ -38,14 +38,16 @@
         <p v-if="loading" class="py-10 text-center text-slate-500">正在读取岗位…</p>
         <p v-else-if="list.items.length === 0" class="py-10 text-center text-slate-500">当前筛选下暂无岗位。</p>
         <div v-else class="space-y-3">
-          <article v-for="job in list.items" :key="job.id" class="rounded-xl border border-slate-200 p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <!-- details 默认收起；summary 只放总览信息，点开后才显示长篇招聘原文和操作。 -->
+          <details v-for="job in list.items" :key="job.id" class="group rounded-xl border border-slate-200 p-4">
+            <summary class="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
               <div>
                 <h3 class="font-bold">{{ job.company_name }} · {{ job.title }}</h3>
                 <p class="mt-1 text-sm text-slate-500">{{ job.location || '地点未填' }}</p>
               </div>
-              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{{ job.status_name }}</span>
-            </div>
+              <span class="flex items-center gap-3"><span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{{ job.status_name }}</span><span class="text-sm text-emerald-700 group-open:hidden">展开</span><span class="hidden text-sm text-emerald-700 group-open:inline">收起</span></span>
+            </summary>
+            <div class="mt-4 border-t border-slate-100 pt-1">
             <p v-if="job.requirements_text" class="mt-3 whitespace-pre-wrap text-sm text-slate-600">{{ job.requirements_text }}</p>
             <p v-if="job.notes" class="mt-2 whitespace-pre-wrap text-sm text-slate-500">备注：{{ job.notes }}</p>
             <a v-if="job.source_url" :href="job.source_url" target="_blank" rel="noopener noreferrer"
@@ -55,7 +57,8 @@
               <button class="text-emerald-700 underline" @click="startEdit(job)">编辑</button>
               <button class="text-red-700 underline" @click="removeJob(job)">删除</button>
             </div>
-          </article>
+            </div>
+          </details>
         </div>
         <div v-if="list.total > list.limit" class="mt-5 flex items-center justify-between text-sm">
           <button class="text-emerald-700 disabled:opacity-40" :disabled="offset === 0 || loading" @click="changePage(-1)">上一页</button>

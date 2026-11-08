@@ -17,7 +17,7 @@ from backend.routers.auth import utc_now
 write_headers = {"Origin": "http://testserver", "X-Job-App-Request": "1"}
 
 
-@pytest.fixture
+@pytest.fixture  # pytest.fixture 装饰器用于定义一个测试夹具（fixture），它可以在测试函数中被调用，提供一些预设的环境或数据。这里的 auth_db 夹具用于为每个测试提供一个独立的内存数据库，确保测试之间不会互相影响。
 def auth_db(monkeypatch: pytest.MonkeyPatch):
     """每个测试使用一份全新的内存库，避免账号和会话互相影响。"""
 
@@ -27,9 +27,9 @@ def auth_db(monkeypatch: pytest.MonkeyPatch):
         poolclass=StaticPool,
     )
 
-    @event.listens_for(engine, "connect")
+    @event.listens_for(engine, "connect")  # 监听 SQLAlchemy 引擎的特定事件，这里监听 "connect" 事件，即每次建立数据库连接时触发。
     def enable_foreign_keys(connection, _record):
-        connection.execute("PRAGMA foreign_keys=ON")
+        connection.execute("PRAGMA foreign_keys=ON")  # 启用 SQLite 的外键约束，确保数据库操作遵循外键关系。
 
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -53,7 +53,7 @@ def post(client: TestClient, path: str, body: dict):
 
 def test_register_login_me_logout(auth_db):
     with TestClient(app) as client:
-        assert client.get("/api/me").status_code == 401
+        assert client.get("/api/me").status_code == 401  # assert 意思是：如果条件为假，则抛出异常并终止程序执行。这里如果返回的状态码不是 401，则说明用户未登录，测试失败。
 
         registered = post(
             client, "/api/auth/register", {"username": "  Alice  ", "password": "a-long-password-123"}

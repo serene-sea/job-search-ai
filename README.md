@@ -8,7 +8,8 @@
 - 求职记录：一家公司可记录多条岗位；按公司与自定义状态查看、编辑岗位。公司目前按岗位中的公司名分组。
 - 个人资料：教育、项目、技能、基本信息；简历支持 PDF、DOCX、TXT 临时提取，人工修订并确认后才参与分析，原文件不长期保存。
 - 岗位报告：先从用户录入的招聘原文提取要求并人工核对，再把要求与本人记录对齐；服务端校验原文片段、资料快照版本和模型引用编号。
-- 聊天：普通模式与结合个人资料模式、会话历史、SSE 流式回答；停止生成会请求服务端取消本机任务并记录中断状态。生成报告时输入的问题会在报告保存后作为独立聊天提问。
+- 聊天：普通模式与结合个人资料模式、会话历史、SSE 回答；停止生成会请求服务端取消本机任务并记录中断状态。生成报告时输入的问题会在报告保存后作为独立聊天提问。
+- 受控资料 Agent：个人模式使用 LangChain 按问题选择只读工具，读取当前岗位及本次勾选的本人资料；服务端注入登录用户 ID、限定调用次数，并核对回答中引用的记录编号。
 
 ## 技术选择
 
@@ -16,15 +17,25 @@
 - **FastAPI + Pydantic**：实现鉴权、文件解析、业务接口、输入校验和 SSE。
 - **Vue 3 + TypeScript + Vite**：实现岗位、资料、简历和统一聊天页面。
 - **DeepSeek Chat Completions**：使用同一模型服务完成要求提取、证据对齐、报告撰写与聊天。模型不能执行 SQL；报告中的引用编号由服务端校验。
+- **LangChain Agent**：仅用于“结合个人资料”问答的模型选工具、限次执行和进度事件；岗位报告与普通聊天沿用原有流程。同一把 `JOB_AI_API_KEY` 即可。
 
 ## 本地启动
 
-需要 Python 3.12、MySQL 和符合 `frontend/package.json` 要求的 Node.js。先复制 `backend/.env.example` 为 `backend/.env`，填写自己的 `DATABASE_URL`。使用 AI 功能时再填写 `JOB_AI_API_KEY`；不要提交真实密钥。
+需要 Python 3.12、MySQL 和符合 `frontend/package.json` 要求的 Node.js。在 `backend/.env` 中填写自己的 `DATABASE_URL`；使用 AI 功能时再填写 `JOB_AI_API_KEY`。例如变量名如下，值由你在本机填写，不要提交真实密钥：
 
-从项目根目录运行：
+```dotenv
+DATABASE_URL=mysql+pymysql://用户名:URL编码后的密码@127.0.0.1:3306/数据库名?charset=utf8mb4
+JOB_AI_API_KEY=你的DeepSeek密钥
+```
+
+`JOB_AI_BASE_URL` 和 `JOB_AI_MODEL` 可选；默认使用现有 DeepSeek 地址和模型。安装新依赖后要重启后端。本次 Agent 改动**没有数据库迁移**，已有数据库无需执行 `alembic upgrade`；从空库启动时仍按下方命令建表。
+
+先激活运行后端的同一个 Python 环境（本机开发使用 Conda `job` 环境），再从项目根目录运行：
 
 ```powershell
 python -m pip install -r backend/requirements.txt
+python -c "import sys; print(sys.executable)"
+python -c "from importlib.metadata import version; print(version('langchain'), version('langchain-core'), version('langchain-openai'))"
 python -m alembic -c backend/alembic.ini upgrade head
 python backend/main.py
 ```
@@ -47,8 +58,8 @@ cd frontend
 pnpm run build
 ```
 
-测试使用临时 SQLite 和假模型，不会调用真实 AI 服务。仓库不含 API Key、真实简历或用户数据库。
+测试使用临时 SQLite 和假模型，不会调用真实 AI 服务。仓库不含 API Key、真实简历或用户数据库。个人模式可用 `backend/scripts/fake_model_service.py` 在本机模拟一次“模型调用工具→工具查资料→模型回答”；假服务不评估岗位匹配度。
 
 ## 当前边界
 
-这是本地作品，未提供公开在线演示。公司尚未独立建表，招聘详情只支持文本录入；受控 Agent、联网检索、自动投递和批量岗位推荐未实现。报告引用可追溯不等于模型判断一定正确，具体经历、招聘信息和建议仍需人工核对。流式取消按本地单进程实现，跨进程部署未处理。
+这是本地作品，未提供公开在线演示。公司尚未独立建表，招聘详情只支持文本录入；Agent 目前只读当前会话的单个岗位和勾选的本人资料，联网检索、自动投递和批量岗位推荐未实现。个人模式先等 Agent 完成并核对引用，再发送正文，等待时间可能长于普通聊天。引用编号有效不等于模型判断一定正确；真实 DeepSeek 效果和浏览器流程尚未在本次改动中验收。流式取消按本地单进程实现，跨进程部署未处理。

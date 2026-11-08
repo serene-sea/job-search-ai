@@ -1,4 +1,5 @@
 fastapi>=0.115,<1
+pydantic>=2.7,<3
 uvicorn>=0.34,<1
 httpx>=0.27,<1
 pytest>=7.4,<10
@@ -12,3 +13,9 @@ python-dotenv>=1.0,<2
 python-multipart>=0.0.20,<1
 pypdf>=5,<7
 python-docx>=1.2,<2
+# “结合个人资料”模式用 Agent 选工具；下面三个版本是本项目已测试的组合。
+# langchain-core 在代码中直接用于消息类型，所以也明确写成直接依赖。
+# langchain-openai 用 ChatOpenAI 连接现有 DeepSeek 兼容接口，仍只用原来的一把 Key。
+langchain==1.4.8
+langchain-core==1.7.4
+langchain-openai==1.7.3

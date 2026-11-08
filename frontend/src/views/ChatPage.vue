@@ -76,7 +76,7 @@
           <p v-else-if="message.status === 'failed'" class="mt-2 text-xs text-red-700">生成失败</p>
         </article>
         <article v-if="draftAnswer !== null" class="max-w-3xl rounded-xl border border-slate-200 p-4 text-sm leading-6">
-          <p class="whitespace-pre-wrap">{{ draftAnswer || '正在生成…' }}</p>
+          <p class="whitespace-pre-wrap">{{ draftAnswer || agentProgress || '正在生成…' }}</p>
         </article>
       </div>
 
@@ -98,7 +98,7 @@
         </div>
         <details class="mt-1 text-xs text-slate-500">
           <summary class="cursor-pointer">资料与回答说明</summary>
-          <p class="mt-1">普通聊天不读取个人记录；结合个人资料时只发送勾选类别的本人记录和当前岗位。简历须先确认，旧报告会按勾选范围过滤。回答不查询网页，具体薪资和招聘流程请以官方渠道为准。</p>
+          <p class="mt-1">普通聊天不读取个人记录；结合个人资料时，AI 会按问题读取勾选类别中的本人记录和当前岗位。简历须先确认；回答不查询网页，具体薪资和招聘流程请以官方渠道为准。</p>
         </details>
         <textarea v-model="question" class="mt-2 w-full resize-y rounded-lg border border-slate-300 p-3" rows="2" maxlength="2000"
           placeholder="例如：这条岗位要求对应的工作通常做什么？我的证据还缺什么？" :disabled="busy"></textarea>
@@ -177,6 +177,8 @@ const busy = ref(false)
 const loading = ref(false)
 const runId = ref<number | null>(null)
 const draftAnswer = ref<string | null>(null)
+// 个人模式先查资料、再给回答；用同一条小提示说明进度，不挤占聊天窗口。
+const agentProgress = ref('')
 const renameId = ref<number | null>(null)
 const renameText = ref('')
 const deleteId = ref<number | null>(null)
@@ -301,12 +303,13 @@ async function send() {
       (mode.value === 'personal' && !selectedSourceNames.value.length && !current.value.job_id)) return
   const sessionId = current.value.id; const asked = question.value.trim()
   const sources = mode.value === 'personal' ? [...selectedSourceNames.value] : []
-  busy.value = true; error.value = ''; draftAnswer.value = ''; runId.value = null
+  busy.value = true; error.value = ''; draftAnswer.value = ''; agentProgress.value = ''; runId.value = null
   // controller 只负责断开浏览器这边；真正停止模型还要调用服务端的 stop 接口。
   controller = new AbortController()
   try {
     await streamAnswer(sessionId, asked, mode.value, sources, controller.signal, (event, data) => {
       if (event === 'start' && typeof data.run_id === 'number') runId.value = data.run_id
+      if (event === 'progress' && typeof data.text === 'string') agentProgress.value = data.text
       if (event === 'delta' && typeof data.text === 'string') draftAnswer.value = (draftAnswer.value ?? '') + data.text
       if (event === 'error' && typeof data.detail === 'string') error.value = data.detail
     })
@@ -316,7 +319,7 @@ async function send() {
     // 服务端保存中断状态与浏览器刷新可能有短暂竞态，以数据库结果为准。
     await new Promise(resolve => window.setTimeout(resolve, 150))
     try { messages.value = await listMessages(sessionId); await refreshSessions() } catch (cause) { showError(cause) }
-    draftAnswer.value = null; runId.value = null; busy.value = false; controller = null
+    draftAnswer.value = null; agentProgress.value = ''; runId.value = null; busy.value = false; controller = null
   }
 }
 async function stopAnswer() {
