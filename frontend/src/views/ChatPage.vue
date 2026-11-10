@@ -47,16 +47,19 @@
 
         <article v-for="message in messages" :key="message.id" class="max-w-3xl rounded-xl border p-4 text-sm leading-6"
           :class="message.role === 'user' ? 'ml-auto border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-white'">
-          <p v-if="message.kind === 'text'" class="whitespace-pre-wrap">{{ message.content || (message.status === 'running' ? '正在生成…' : '没有生成内容') }}</p>
+          <template v-if="message.kind === 'text'">
+            <MarkdownContent v-if="message.role === 'assistant' && message.content" :text="message.content" />
+            <p v-else class="whitespace-pre-wrap">{{ message.content || (message.status === 'running' ? '正在生成…' : '没有生成内容') }}</p>
+          </template>
           <div v-else-if="message.report_json" class="space-y-3">
             <h2 class="text-lg font-bold">{{ message.report_json.company_name }} · {{ message.report_json.title }}：岗位求职报告</h2>
             <p v-if="message.content.startsWith('报告关注点：')" class="text-slate-600">{{ message.content }}</p>
             <p class="text-xs text-slate-500">基于你填写的招聘要求与个人记录；没有查询外部招聘信息。模型判断和改写草稿需由你核对，“材料未见”不等于不会。</p>
             <p class="text-xs text-slate-500">{{ message.report_json.resume_used ? '已参考确认过的简历文字。' : '未使用简历：只有确认过的简历文字才会进入报告。' }}</p>
             <p v-if="message.report_json.context_limited" class="text-amber-800">材料较长，本次仅选取了部分记录，可能遗漏证据。</p>
-            <div v-if="message.report_json.guide?.text" class="whitespace-pre-wrap leading-7">
+            <div v-if="message.report_json.guide?.text" class="leading-7">
               <p v-if="message.report_json.guide.limited" class="mb-2 rounded-lg bg-amber-50 p-3 text-amber-900">综合报告暂未生成，下面可查看已核对的岗位要求和个人依据。</p>
-              {{ message.report_json.guide.text }}
+              <MarkdownContent :text="message.report_json.guide.text" />
             </div>
             <details class="rounded-lg border border-slate-200 p-3">
               <summary class="cursor-pointer font-semibold">查看岗位要求与核对依据</summary>
@@ -76,7 +79,8 @@
           <p v-else-if="message.status === 'failed'" class="mt-2 text-xs text-red-700">生成失败</p>
         </article>
         <article v-if="draftAnswer !== null" class="max-w-3xl rounded-xl border border-slate-200 p-4 text-sm leading-6">
-          <p class="whitespace-pre-wrap">{{ draftAnswer || agentProgress || '正在生成…' }}</p>
+          <MarkdownContent v-if="draftAnswer" :text="draftAnswer" />
+          <p v-else>{{ agentProgress || '正在生成…' }}</p>
         </article>
       </div>
 
@@ -152,6 +156,7 @@
 </template>
 
 <script setup lang="ts">
+import MarkdownContent from '../components/MarkdownContent.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '../auth'
